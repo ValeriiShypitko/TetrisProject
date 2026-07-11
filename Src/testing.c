@@ -32,12 +32,12 @@
 /* A real contact-bounce window. The old 310 ms was not a debounce but a rate
  * limiter, needed because a press cost up to two 300 ms game ticks to apply.
  * Raise this if the buttons still double-trigger. */
-#define DEBOUNCE_MS 65U
+#define DEBOUNCE_MS 120U
 
 #define PendSV_SysTick 0x1
 #define PendSV_EXTI 0x0
 
-const Point_t SPAWNPOINT = {3, 30};
+const Point_t DEFAULTSPAWNPOINT = {3, 30};
 
 /* Written by an ISR, read by another context: the compiler must not cache
  * these in registers or hoist the reads out of a loop. */
@@ -67,8 +67,9 @@ static inline int8_t takeIntent(volatile int8_t *slot) {
   __asm volatile("CPSIE i" ::: "memory");
   return v;
 }
-static uint8_t TetrisSearchButton(void); // Returns the pending button pin, or
-                                         // NO_BUTTON if no known line is pending
+static uint8_t
+TetrisSearchButton(void); // Returns the pending button pin, or
+                          // NO_BUTTON if no known line is pending
 
 const Point_Value_t IShape_Rts[4][4][4] = {
     {{{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {2, 1, 0}},
@@ -208,13 +209,13 @@ const Point_Value_t OShape_Rts[4][4][4] = {
      {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}}};
 const Point_t CUBESPAWNPOINT = {4, 30};
 
-const Shape_t IShape = {SPAWNPOINT, SHAPE_LEN_4, 0, IShape_Rts};
+const Shape_t IShape = {DEFAULTSPAWNPOINT, SHAPE_LEN_4, 0, IShape_Rts};
 
-const Shape_t JShape = {SPAWNPOINT, SHAPE_LEN_3, 0, JShape_Rts};
-const Shape_t LShape = {SPAWNPOINT, SHAPE_LEN_3, 0, LShape_Rts};
-const Shape_t TShape = {SPAWNPOINT, SHAPE_LEN_3, 0, TShape_Rts};
-const Shape_t SShape = {SPAWNPOINT, SHAPE_LEN_3, 0, SShape_Rts};
-const Shape_t ZShape = {SPAWNPOINT, SHAPE_LEN_3, 0, ZShape_Rts};
+const Shape_t JShape = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, JShape_Rts};
+const Shape_t LShape = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, LShape_Rts};
+const Shape_t TShape = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, TShape_Rts};
+const Shape_t SShape = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, SShape_Rts};
+const Shape_t ZShape = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, ZShape_Rts};
 
 const Shape_t OShape = {CUBESPAWNPOINT, SHAPE_LEN_2, 0, OShape_Rts};
 
@@ -226,6 +227,7 @@ Shape_t shapesArr[SHAPESCOUNT] = {TShape, LShape, JShape, OShape,
 extern volatile uint32_t userScore;
 
 /* Raised by PendSV, reported by the foreground. */
+volatile bool gameStarted = false;
 volatile bool gameOver = false;
 
 int main(void) {
@@ -290,14 +292,15 @@ int main(void) {
   clearTetrisMap();
   convertTetrisMapToDisplayMap();
 
-  currentShape = shapesArr[getRandShape(SYSTICK->SYST_CVR)];
-
   /* Timekeeping lives in SysTick, input capture in EXTI, and the game tick in
    * PendSV. The foreground only reports, because printf() over semihosting
    * halts the core for milliseconds and must never run inside an exception. */
   uint32_t shownScore = 0;
   bool reportedGameOver = false;
 
+  while (!gameStarted)
+    ; // Wait until user presses button
+  currentShape = shapesArr[getRandShape(globalTime)];
   for (;;) {
     uint32_t score = userScore;
     if (score != shownScore) {
@@ -331,9 +334,8 @@ void pendPendSV(void) { SCB->ICSR = (1U << 28); }
 
 void EXTI9_5_IRQHandler(void) {
   uint8_t pin = TetrisSearchButton();
-
   if (pin == NO_BUTTON) {
-    /* A line we don't own is pending. Acknowledge it, or we re-enter forever. */
+    /* A line we don't own is pending. Acknowledge it, or we re-enter forever.*/
     EXTI->PR = EXTI9_5_LINES;
     return;
   }
@@ -341,37 +343,43 @@ void EXTI9_5_IRQHandler(void) {
 
   /* Drop the press before it is published, so a contact bounce cannot queue
    * a second move. */
+
   if (globalTime - lastTimePressed < DEBOUNCE_MS)
     return;
   lastTimePressed = globalTime;
 
-  switch (pin) { /* record the intent; PendSV decides whether it is legal */
-  case LEFTARROW:
-    queuedMove = -1;
-    break;
-  case RIGHTARROW:
-    queuedMove = +1;
-    break;
-  case LEFTSPIN:
-    queuedSpin = -1;
-    break;
-  case RIGHTSPIN:
-    queuedSpin = +1;
-    break;
-  default:
-    break;
+  if (gameStarted) {
+    switch (pin) { /* record the intent; PendSV decides whether it is legal */
+
+    case LEFTARROW:
+      queuedMove = -1;
+      break;
+    case RIGHTARROW:
+      queuedMove = +1;
+      break;
+    case LEFTSPIN:
+      queuedSpin = -1;
+      break;
+    case RIGHTSPIN:
+      queuedSpin = +1;
+      break;
+    default:
+      break;
+    }
   }
+  gameStarted = true;
 }
 
 void SysTick_Handler(void) {
-
   static uint32_t updateScreenTime = 0;
-  globalTime++;
-  updateScreenTime++;
 
-  if (updateScreenTime >= 300) {
-    updateScreenTime = 0;
-    pendPendSV();
+  globalTime++;
+  if (gameStarted) {
+    updateScreenTime++;
+    if (updateScreenTime >= GAMESPEED) {
+      updateScreenTime = 0;
+      pendPendSV();
+    }
   }
 }
 
@@ -402,10 +410,11 @@ void PendSV_Handler(void) {
     currentShape.pivot.y = currentShape.pivot.y + 1;
     addFigure(&currentShape);
     removeFullRows();
-    currentShape = shapesArr[getRandShape(SYSTICK->SYST_CVR)];
+    currentShape = shapesArr[getRandShape(globalTime)];
     if (canSpawn(&currentShape) == false) {
-      SysTick_Clock_DeInit();          /* stop the game tick */
-      NVIC_DisableIRQ(IRQ_NO_EXTI9_5); /* and stop queueing input nobody applies */
+      SysTick_Clock_DeInit(); /* stop the game tick */
+      NVIC_DisableIRQ(
+          IRQ_NO_EXTI9_5); /* and stop queueing input nobody applies */
       MAX7219_ClearDisplayMap();
       MAX7219_UpdateDisplay();
       gameOver = true; /* the foreground prints; ISRs must not */
