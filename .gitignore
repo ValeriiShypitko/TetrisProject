@@ -1,0 +1,17 @@
+/Debug/
+/.metadata/
+/.settings/
+.cproject
+.project
+*.launch
+compile_commands.json
+Src/001SPI_Transmit_Testing.c
+Src/ledgame.c
+Src/main.c
+Src/nfcReader.c
+drivers/Src/BMOS.c
+drivers/Src/ENC28J60_REG.c
+drivers/Src/MFRC522_REG.c
+drivers/Inc/BMOS.h
+drivers/Inc/ENC28J60_REG.h
+drivers/Inc/MFRC522_REG.h
