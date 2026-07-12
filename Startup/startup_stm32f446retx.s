@@ -57,6 +57,20 @@ defined in linker script */
 Reset_Handler:
   ldr   r0, =_estack
   mov   sp, r0          /* set stack pointer */
+
+/* Enable the FPU coprocessor (CP10/CP11 full access). Required because this
+ * project is built with -mfloat-abi=hard: without this, any VFP instruction
+ * (including the ones hard-float printf/vfprintf emit) raises a NOCP
+ * UsageFault that escalates to a Forced HardFault. SystemInit below is a
+ * no-op stub (weak, no CMSIS system_stm32f4xx.c in this project), so it does
+ * not do this for us. */
+  ldr   r0, =0xE000ED88
+  ldr   r1, [r0]
+  orr   r1, r1, #(0xF << 20)
+  str   r1, [r0]
+  dsb
+  isb
+
 /* Call the clock system initialization function.*/
   bl  SystemInit
 

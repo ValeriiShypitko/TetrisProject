@@ -237,6 +237,16 @@ typedef struct {
 
 } SPI_RegDef_t;
 
+typedef struct {
+  __IO uint32_t SR;   // USART status register
+  __IO uint32_t DR;   // USART data register
+  __IO uint32_t BRR;  // USART baud rate register
+  __IO uint32_t CR1;  // USART control register 1
+  __IO uint32_t CR2;  // USART control register 2
+  __IO uint32_t CR3;  // USART control register 3
+  __IO uint32_t GTPR; // USART guard time and prescaler register
+} USART_RegDef_t;
+
 /* =========================
    Bus base addresses
    ========================= */
@@ -410,6 +420,7 @@ typedef struct {
 #define SPI2 ((SPI_RegDef_t *)SPI2_BASEADDR)
 #define SPI3 ((SPI_RegDef_t *)SPI3_BASEADDR)
 #define SPI4 ((SPI_RegDef_t *)SPI4_BASEADDR)
+#define USART2 ((USART_RegDef_t *)USART2_BASEADDR)
 
 /* =========================
    Clock Enable Structure and enum

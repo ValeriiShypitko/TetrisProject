@@ -1,6 +1,7 @@
 /Debug/
 /.metadata/
-/.settings/
+.settings/com.st.stm32cube.ide.mcu.sfrview.prefs
+.settings/language.settings.xml
 .cproject
 .project
 *.launch
@@ -15,3 +16,4 @@ drivers/Src/MFRC522_REG.c
 drivers/Inc/BMOS.h
 drivers/Inc/ENC28J60_REG.h
 drivers/Inc/MFRC522_REG.h
+build

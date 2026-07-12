@@ -230,7 +230,10 @@ extern volatile uint32_t userScore;
 volatile bool gameStarted = false;
 volatile bool gameOver = false;
 
+extern void USART2_TX_Init(void);
+
 int main(void) {
+  USART2_TX_Init();
   RCC_Enable_Clock(RCC_GPIOB);
   RCC_Enable_Clock(RCC_SPI2);
 
@@ -301,14 +304,14 @@ int main(void) {
   while (!gameStarted)
     ; // Wait until user presses button
   currentShape = shapesArr[getRandShape(globalTime)];
-  for (;;) {
+  for (;;){
     uint32_t score = userScore;
-    if (score != shownScore) {
+    if (score != shownScore){
       shownScore = score;
       printf("Your score: %lu\n", score);
     }
 
-    if (gameOver && !reportedGameOver) {
+    if(gameOver && !reportedGameOver){
       reportedGameOver = true;
       printf("Game Over!\r\n");
       /* re-read: PendSV publishes the score before it raises gameOver */
@@ -318,11 +321,11 @@ int main(void) {
   return 0;
 }
 
-static uint8_t TetrisSearchButton(void) {
+static uint8_t TetrisSearchButton(void){
   static const uint8_t buttonPins[BUTTONCOUNT] = {LEFTARROW, RIGHTARROW,
                                                   LEFTSPIN, RIGHTSPIN};
-  for (uint8_t i = 0; i < BUTTONCOUNT; i++) {
-    if (EXTI->PR & (1U << buttonPins[i]))
+  for (uint8_t i = 0; i < BUTTONCOUNT; i++){
+    if(EXTI->PR & (1U << buttonPins[i]))
       return buttonPins[i];
   }
   return NO_BUTTON;
@@ -330,11 +333,11 @@ static uint8_t TetrisSearchButton(void) {
 
 /* PENDSVSET is write-1-to-set; a read-modify-write would also write back any
  * other set bits it happened to read (PENDSTSET among them). Plain store. */
-void pendPendSV(void) { SCB->ICSR = (1U << 28); }
+void pendPendSV(void){ SCB->ICSR = (1U << 28);}
 
-void EXTI9_5_IRQHandler(void) {
+void EXTI9_5_IRQHandler(void){
   uint8_t pin = TetrisSearchButton();
-  if (pin == NO_BUTTON) {
+  if(pin == NO_BUTTON){
     /* A line we don't own is pending. Acknowledge it, or we re-enter forever.*/
     EXTI->PR = EXTI9_5_LINES;
     return;
@@ -344,11 +347,11 @@ void EXTI9_5_IRQHandler(void) {
   /* Drop the press before it is published, so a contact bounce cannot queue
    * a second move. */
 
-  if (globalTime - lastTimePressed < DEBOUNCE_MS)
+  if(globalTime - lastTimePressed < DEBOUNCE_MS)
     return;
   lastTimePressed = globalTime;
 
-  if (gameStarted) {
+  if(gameStarted){
     switch (pin) { /* record the intent; PendSV decides whether it is legal */
 
     case LEFTARROW:
@@ -370,55 +373,54 @@ void EXTI9_5_IRQHandler(void) {
   gameStarted = true;
 }
 
-void SysTick_Handler(void) {
+void SysTick_Handler(void){
   static uint32_t updateScreenTime = 0;
 
   globalTime++;
-  if (gameStarted) {
+  if(gameStarted){
     updateScreenTime++;
-    if (updateScreenTime >= GAMESPEED) {
+    if(updateScreenTime >= GAMESPEED) {
       updateScreenTime = 0;
       pendPendSV();
     }
   }
 }
 
-void PendSV_Handler(void) {
+void PendSV_Handler(void){
   int8_t mv = takeIntent(&queuedMove);
   int8_t sp = takeIntent(&queuedSpin);
 
   /* Validated here, against the board as it stands right now. A move and a
    * rotation queued in the same tick both apply. */
-  if (mv < 0 && canGoLeft(&currentShape))
+  if(mv < 0 && canGoLeft(&currentShape))
     currentShape.pivot.x--;
-  else if (mv > 0 && canGoRight(&currentShape))
+  else if(mv > 0 && canGoRight(&currentShape))
     currentShape.pivot.x++;
 
-  if (sp < 0 && canSpin_Left(&currentShape))
+  if(sp < 0 && canSpin_Left(&currentShape))
     currentShape.rotateNum = (currentShape.rotateNum + 3) % 4;
-  else if (sp > 0 && canSpin_Right(&currentShape))
+  else if(sp > 0 && canSpin_Right(&currentShape))
     currentShape.rotateNum = (currentShape.rotateNum + 1) % 4;
 
   bool canDown = canGoDown(&currentShape);
 
-  if (canDown) {
+  if(canDown){
 
     addFigure(&currentShape);
     clearFigure(&currentShape);
     moveFigureDown(&currentShape);
-  } else {
+  }else{
     currentShape.pivot.y = currentShape.pivot.y + 1;
     addFigure(&currentShape);
     removeFullRows();
     currentShape = shapesArr[getRandShape(globalTime)];
-    if (canSpawn(&currentShape) == false) {
-      SysTick_Clock_DeInit(); /* stop the game tick */
-      NVIC_DisableIRQ(
-          IRQ_NO_EXTI9_5); /* and stop queueing input nobody applies */
+    if(canSpawn(&currentShape) == false){
+      SysTick_Clock_DeInit(); 
+      NVIC_DisableIRQ(IRQ_NO_EXTI9_5); 
       MAX7219_ClearDisplayMap();
       MAX7219_UpdateDisplay();
-      gameOver = true; /* the foreground prints; ISRs must not */
-      return;          /* no survival bonus for the tick that ended the game */
+      gameOver = true; 
+      return;          
     }
   }
   userScore += 75;
