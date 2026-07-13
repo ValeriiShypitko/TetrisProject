@@ -117,9 +117,7 @@ uint8_t SPI_GetStatusFlag(SPI_RegDef_t *pSPIx, uint32_t flagName);
 // *pRxBuffer, uint32_t len);
 void SPI_TransferData(SPI_RegDef_t *pSPIx, uint8_t data);
 
-void SPI2_GPIOs_Init(void);
-void SPI2_Init(void);
-void SPI2_SSI_Config(SPI_RegDef_t *pSPIx);
+void SPI_SSI_Config(SPI_RegDef_t *pSPIx);
 void SPI_Pull_CS_LOW(GPIOx_RegDef_t *GPIO_Port, uint8_t GPIO_Pin);
 void SPI_Pull_CS_HIGH(GPIOx_RegDef_t *GPIO_Port, uint8_t GPIO_Pin);
 

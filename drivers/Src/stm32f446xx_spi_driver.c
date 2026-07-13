@@ -6,6 +6,7 @@
  */
 
 #include "stm32f446xx_spi_driver.h"
+#include "stm32f446xx_gpio_driver.h"
 
 /**
  * @fn              - SPI_PeriphEnable
@@ -103,8 +104,8 @@ void SPI_Init(SPI_Handle_t *pSPIHandle) {
  * @Note            - none
  */
 void SPI_DeInit(RCC_Periph_e SPIx) {
-  *rcc_reset_map[SPIx].reg |= (0x1U << rcc_en_map[SPIx].bit);
-  *rcc_reset_map[SPIx].reg &= (0x1U << rcc_en_map[SPIx].bit);
+  *rcc_reset_map[SPIx].reg |=  (0x1U << rcc_reset_map[SPIx].bit);
+  *rcc_reset_map[SPIx].reg &= ~(0x1U << rcc_reset_map[SPIx].bit);
 }
 
 /**
@@ -128,7 +129,11 @@ void SPI_SendData(SPI_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint32_t len) {
       ;
     // 2. Send Data (16 or 8 bits)
     if (pSPIx->SPI_CR1 & (1 << SPI_CR1_DFF)) {
-      pSPIx->SPI_DR = *((uint16_t *)pTxBuffer);
+      // build frame from bytes, buffer may be unaligned
+      uint16_t frame = pTxBuffer[0];
+      if (len > 1)
+        frame |= (uint16_t)pTxBuffer[1] << 8;
+      pSPIx->SPI_DR = frame;
       pTxBuffer += 2;
       len = (len >= 2) ? (len - 2) : 0;
     } else {
@@ -136,24 +141,31 @@ void SPI_SendData(SPI_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint32_t len) {
       pTxBuffer++;
       len--;
     }
-    while (SPI_GetStatusFlag(pSPIx, SPI_BSY_FLAG))
-      ; /* Wait until SPI is busy in communication or Tx buffer is not empty*/
   }
+  while (SPI_GetStatusFlag(pSPIx, SPI_BSY_FLAG))
+    ; // wait for the last frame to leave the shift register
 }
 
+// Master only clocks while transmitting, so send dummy frames to receive
 void SPI_ReceiveData(SPI_RegDef_t *pSPIx, uint8_t *pRxBuffer, uint32_t len) {
   while (len > 0) {
-    // 1. Wait until RXBuffer is empty
-    while (SPI_GetStatusFlag(pSPIx, SPI_RXNE_FLAG) == FLAG_RESET)
+    while (SPI_GetStatusFlag(pSPIx, SPI_TXE_FLAG) == FLAG_RESET)
       ;
-    // 2. Receive Data (16 or 8 bits)
     if (pSPIx->SPI_CR1 & (1 << SPI_CR1_DFF)) {
-      *((uint16_t *)pRxBuffer) = pSPIx->SPI_DR;
+      pSPIx->SPI_DR = 0xFFFFU; // dummy
+      while (SPI_GetStatusFlag(pSPIx, SPI_RXNE_FLAG) == FLAG_RESET)
+        ;
+      uint16_t frame = pSPIx->SPI_DR;
+      pRxBuffer[0] = (uint8_t)frame;
+      if (len > 1)
+        pRxBuffer[1] = (uint8_t)(frame >> 8);
       pRxBuffer += 2;
       len = (len >= 2) ? (len - 2) : 0;
-
     } else {
-      *pRxBuffer = pSPIx->SPI_DR;
+      pSPIx->SPI_DR = 0xFFU; // dummy
+      while (SPI_GetStatusFlag(pSPIx, SPI_RXNE_FLAG) == FLAG_RESET)
+        ;
+      *pRxBuffer = (uint8_t)pSPIx->SPI_DR;
       pRxBuffer++;
       len--;
     }
@@ -180,12 +192,10 @@ void SPI_TransferReceiveData(SPI_RegDef_t *pSPIx, uint8_t *dataOut,
 
 /**
  * @brief   Transfers one byte over SPI while simultaneously receiving a byte.
- * @details Full-duplex operation: while @p data is shifted out on MOSI, a byte
- *          is shifted in from MISO and returned. Thin wrapper around
- *          SPI_TransmitReceive() for convenient use with the MFRC522.
- * @param   SPI register address.
- * @param   data  The byte sent to the slave (MFRC522).
- * @return  The byte received from the MFRC522 during the same transfer.
+ * @details Thin wrapper around SPI_TransmitReceive() for convenient use 
+ * @param   SPI register address
+ * @param   8bit data to be transmitted
+ * @return  uint8_t - The byte received from the slave device
  */
 
 uint8_t SPI_Transfer(SPI_RegDef_t *pSPIx, uint8_t data) {
@@ -202,30 +212,6 @@ uint8_t SPI_GetStatusFlag(SPI_RegDef_t *pSPIx, uint32_t flagName) {
   return FLAG_RESET;
 }
 
-void SPI2_GPIOs_Init(void) {
-  GPIO_Handle_t gpioSPI2pins;
-  memset(&gpioSPI2pins, 0, sizeof(GPIO_Handle_t));
-  gpioSPI2pins.GPIOx = GPIOB;
-  gpioSPI2pins.PinConfig.GPIOx_PinMode = GPIO_MODE_OUT;
-  gpioSPI2pins.PinConfig.GPIOx_PinAltFuncMode = 5;
-  gpioSPI2pins.PinConfig.GPIOx_PinOutputType = GPIO_OT_PP;
-  gpioSPI2pins.PinConfig.GPIOx_PinPuPdControl = GPIO_NOPUD;
-  gpioSPI2pins.PinConfig.GPIOx_PinSpeed = GPIO_OS_HS;
-
-  gpioSPI2pins.PinConfig.GPIOx_PinNumber = GPIO_PIN_12; // NSS config
-  RCC_Enable_Clock(RCC_GPIOB);
-  GPIO_Init(&gpioSPI2pins);
-  gpioSPI2pins.PinConfig.GPIOx_PinMode = GPIO_MODE_ALTFN;
-  gpioSPI2pins.PinConfig.GPIOx_PinNumber = GPIO_PIN_13; // SCK config
-  GPIO_Init(&gpioSPI2pins);
-
-  gpioSPI2pins.PinConfig.GPIOx_PinNumber = GPIO_PIN_14; // MISO config
-  GPIO_Init(&gpioSPI2pins);
-
-  gpioSPI2pins.PinConfig.GPIOx_PinNumber = GPIO_PIN_15; // MOSI config
-  GPIO_Init(&gpioSPI2pins);
-}
-
 void SPI_Pull_CS_LOW(GPIOx_RegDef_t *GPIO_Port, uint8_t GPIO_Pin) {
   GPIO_WriteToOutputPin(GPIO_Port, GPIO_Pin, RESET); // CS LOW
 }
@@ -234,22 +220,7 @@ void SPI_Pull_CS_HIGH(GPIOx_RegDef_t *GPIO_Port, uint8_t GPIO_Pin) {
   GPIO_WriteToOutputPin(GPIO_Port, GPIO_Pin, SET); // CS HIGH
 }
 
-void SPI2_Init(void) {
-  SPI2_GPIOs_Init();
-  SPI_Handle_t SPI2Handle;
-  memset(&SPI2Handle, 0, sizeof(SPI_Handle_t));
-  SPI2Handle.pSPIx = SPI2;
-  SPI2Handle.SPIConfig.SPI_DeviceMode = SPI_DeviceMode_Master;
-  SPI2Handle.SPIConfig.SPI_SCLKSpeed = SPI_SCLKSpeed_DIV2;
-  SPI2Handle.SPIConfig.SPI_DFF = SPI_DFF_8Bits;
-  SPI2Handle.SPIConfig.SPI_SSM = SPI_SSM_EN;
-  SPI2Handle.SPIConfig.SPI_CPOL = SPI_CPOL_0;
-  SPI2Handle.SPIConfig.SPI_CPHA = SPI_CPHA_LEAD;
-  SPI2Handle.SPIConfig.SPI_BusConfig = SPI_BusConfig_FD;
-  RCC_Enable_Clock(RCC_SPI2);
-  SPI_Init(&SPI2Handle);
-}
-
-void SPI2_SSI_Config(SPI_RegDef_t *pSPIx) {
+// SSI must be set in master mode with SSM, otherwise MODF fault
+void SPI_SSI_Config(SPI_RegDef_t *pSPIx) {
   pSPIx->SPI_CR1 |= 1 << SPI_CR1_SSI;
 }

@@ -1,8 +1,6 @@
 #ifndef IRC_STM32F446XX_H_
 #define IRC_STM32F446XX_H_
-#include "string.h"
 #include <stdint.h>
-#define _vo volatile
 
 #define __I volatile const // Read Only Register
 #define __O volatile       // Write Only Register
@@ -18,27 +16,25 @@
    ARM Cortex M4 processor RegDef Structs
    ========================= */
 typedef struct {
-  uint32_t ISER[8]; // Interrupt Set-enable Registers
+  __IO uint32_t ISER[8]; // Interrupt Set-enable Registers
   uint32_t RESERVED0[24];
-  uint32_t ICER[8]; // Interrupt Clear-enable Registers
+  __IO uint32_t ICER[8]; // Interrupt Clear-enable Registers
   uint32_t RESERVED1[24];
-  uint32_t ISPR[8]; // Interrupt Set-pending Registers
+  __IO uint32_t ISPR[8]; // Interrupt Set-pending Registers
   uint32_t RESERVED2[24];
-  uint32_t ICPR[8]; // Interrupt Clear-pending registers
+  __IO uint32_t ICPR[8]; // Interrupt Clear-pending registers
   uint32_t RESERVED3[24];
-  uint32_t IABR[8]; // Interrupt Active Bit Registers
+  __I uint32_t IABR[8]; // Interrupt Active Bit Registers
   uint32_t RESERVED4[56];
-  uint32_t IPR[60]; // Interrupt Priority Registers
+  __IO uint32_t IPR[60]; // Interrupt Priority Registers
   uint32_t RESERVED5[644];
-  uint32_t STIR; // Software Trigger Interrupt
+  __O uint32_t STIR; // Software Trigger Interrupt
 } NVIC_RegDef_t;
 
 typedef struct {
   __IO uint32_t ACTLR; // Auxiliary Control Register: Controls Cortex-M specific
                        // features like folding, etc.
-  __IO uint32_t
-      RESERVED0[829]; // Explicit padding: Fills the memory gap between ACTLR
-                      // and CPUID to match hardware addresses.
+  __IO uint32_t RESERVED0[829]; // padding up to CPUID
   __I uint32_t CPUID; // CPUID Base Register: Contains processor part number,
                       // version, and implementation details.
   __IO uint32_t ICSR; // Interrupt Control and State Register: Used to set/clear
@@ -73,9 +69,7 @@ typedef struct {
 
   __IO uint32_t HFSR; // HardFault Status Register: Gives information about
                       // events that trigger a HardFault.
-  __IO uint32_t
-      RESERVED1; // Explicit padding: Skips one 32-bit word (often where the
-                 // Debug Fault Status Register sits) to keep alignment.
+  __IO uint32_t RESERVED1; // padding (DFSR slot)
   __IO uint32_t MMAR; // MemManage Fault Address Register: Holds the address
                       // that triggered the MemManage fault.
   __IO uint32_t BFAR; // BusFault Address Register: Holds the address that
@@ -113,6 +107,11 @@ typedef struct {
 #define SYSTICK_CLKSOURCE (1U << 2) // Indicates the clock source
 #define SYSTICK_COUNTFLAG                                                      \
   (1U << 16) // Returns 1 if timer counted to 0 since last time this was read.
+
+/* =========================
+   SCB ICSR bit macros
+   ========================= */
+#define SCB_ICSR_PENDSVSET (1U << 28) // Pends the PendSV exception
 
 /* =========================
    STM32F446RE(MCU) specific details
@@ -208,31 +207,31 @@ typedef struct {
 } SYSCFG_RegDef_t;
 
 typedef struct {
-  uint16_t SPI_CR1; // SPI control register 1 (not used in I2S mode)
+  __IO uint16_t SPI_CR1; // SPI control register 1 (not used in I2S mode)
   uint16_t RESERVED1;
 
-  uint16_t SPI_CR2; // SPI control register 2
+  __IO uint16_t SPI_CR2; // SPI control register 2
   uint16_t RESERVED2;
 
-  uint16_t SPI_SR; // SPI status register
+  __IO uint16_t SPI_SR; // SPI status register
   uint16_t RESERVED3;
 
-  uint16_t SPI_DR; // SPI data register
+  __IO uint16_t SPI_DR; // SPI data register
   uint16_t RESERVED4;
 
-  uint16_t SPI_CRCPR; // SPI CRC polynomial register (not used in I2S mode)
+  __IO uint16_t SPI_CRCPR; // SPI CRC polynomial register (not used in I2S mode)
   uint16_t RESERVED5;
 
-  uint16_t SPI_RXCRCR; // SPI RX CRC register (not used in I2S mode)
+  __I uint16_t SPI_RXCRCR; // SPI RX CRC register (not used in I2S mode)
   uint16_t RESERVED6;
 
-  uint16_t SPI_TXCRCR; // SPI TX CRC register (not used in I2S mode)
+  __I uint16_t SPI_TXCRCR; // SPI TX CRC register (not used in I2S mode)
   uint16_t RESERVED7;
 
-  uint16_t SPI_I2SCFGR; // SPI_I2S configuration register
+  __IO uint16_t SPI_I2SCFGR; // SPI_I2S configuration register
   uint16_t RESERVED8;
 
-  uint16_t SPI_I2SPR; // SPI_I2S prescaler register
+  __IO uint16_t SPI_I2SPR; // SPI_I2S prescaler register
   uint16_t RESERVED9;
 
 } SPI_RegDef_t;
@@ -456,41 +455,13 @@ typedef enum {
 
 // RCC set/reset map structures
 typedef struct {
-  _vo uint32_t *reg;
-  _vo uint8_t bit;
+  __IO uint32_t *reg;
+  uint8_t bit;
 } RCC_Map_t;
 
-static const RCC_Map_t rcc_en_map[] = {
-    [RCC_GPIOA] = {&RCC->AHB1ENR, 0},   [RCC_GPIOB] = {&RCC->AHB1ENR, 1},
-    [RCC_GPIOC] = {&RCC->AHB1ENR, 2},   [RCC_GPIOD] = {&RCC->AHB1ENR, 3},
-    [RCC_GPIOE] = {&RCC->AHB1ENR, 4},   [RCC_GPIOF] = {&RCC->AHB1ENR, 5},
-    [RCC_GPIOG] = {&RCC->AHB1ENR, 6},   [RCC_GPIOH] = {&RCC->AHB1ENR, 7},
-
-    [RCC_USART1] = {&RCC->APB2ENR, 4},  [RCC_USART6] = {&RCC->APB2ENR, 5},
-    [RCC_SPI1] = {&RCC->APB2ENR, 12},   [RCC_SPI4] = {&RCC->APB2ENR, 13},
-    [RCC_SYSCFG] = {&RCC->APB2ENR, 14},
-
-    [RCC_USART2] = {&RCC->APB1ENR, 17}, [RCC_USART3] = {&RCC->APB1ENR, 18},
-    [RCC_UART4] = {&RCC->APB1ENR, 19},  [RCC_UART5] = {&RCC->APB1ENR, 20},
-    [RCC_SPI2] = {&RCC->APB1ENR, 14},   [RCC_SPI3] = {&RCC->APB1ENR, 15},
-    [RCC_I2C1] = {&RCC->APB1ENR, 21},   [RCC_I2C2] = {&RCC->APB1ENR, 22},
-    [RCC_I2C3] = {&RCC->APB1ENR, 23}};
-
-static const RCC_Map_t rcc_reset_map[] = {
-    [RCC_GPIOA] = {&RCC->AHB1RSTR, 0},   [RCC_GPIOB] = {&RCC->AHB1RSTR, 1},
-    [RCC_GPIOC] = {&RCC->AHB1RSTR, 2},   [RCC_GPIOD] = {&RCC->AHB1RSTR, 3},
-    [RCC_GPIOE] = {&RCC->AHB1RSTR, 4},   [RCC_GPIOF] = {&RCC->AHB1RSTR, 5},
-    [RCC_GPIOG] = {&RCC->AHB1RSTR, 6},   [RCC_GPIOH] = {&RCC->AHB1RSTR, 7},
-
-    [RCC_USART1] = {&RCC->APB2RSTR, 4},  [RCC_USART6] = {&RCC->APB2RSTR, 5},
-    [RCC_SPI1] = {&RCC->APB2RSTR, 12},   [RCC_SPI4] = {&RCC->APB2RSTR, 13},
-    [RCC_SYSCFG] = {&RCC->APB2RSTR, 14},
-
-    [RCC_USART2] = {&RCC->APB1RSTR, 17}, [RCC_USART3] = {&RCC->APB1RSTR, 18},
-    [RCC_UART4] = {&RCC->APB1RSTR, 19},  [RCC_UART5] = {&RCC->APB1RSTR, 20},
-    [RCC_SPI2] = {&RCC->APB1RSTR, 14},   [RCC_SPI3] = {&RCC->APB1RSTR, 15},
-    [RCC_I2C1] = {&RCC->APB1RSTR, 21},   [RCC_I2C2] = {&RCC->APB1RSTR, 22},
-    [RCC_I2C3] = {&RCC->APB1RSTR, 23}};
+// defined in stm32f446xx_rcc.c
+extern const RCC_Map_t rcc_en_map[];
+extern const RCC_Map_t rcc_reset_map[];
 /* =========================
    Inline Fuctions
    ========================= */
@@ -636,11 +607,12 @@ static inline void NVIC_DisableIRQ(uint8_t IRQNumber) {
  */
 static inline void NVIC_SetPriority(uint8_t IRQNumber, uint8_t priority) {
   uint8_t priority_reg_pos = IRQNumber / 4;
-  uint8_t priority_bit_pos =
-      (8 * (IRQNumber % 4) + (8 - NO_PR_BITS_IMPLEMENTED));
+  uint8_t priority_bit_pos = (8 * (IRQNumber % 4) + (8 - NO_PR_BITS_IMPLEMENTED));
 
   // setting the priority
-  NVIC->IPR[priority_reg_pos] |= (priority << priority_bit_pos);
+
+  NVIC->IPR[priority_reg_pos] &= ~(0xFFU << (8 * (IRQNumber % 4)));
+  NVIC->IPR[priority_reg_pos] |= ((uint32_t)priority << priority_bit_pos);
 }
 
 /**
@@ -652,15 +624,12 @@ static inline void NVIC_SetPriority(uint8_t IRQNumber, uint8_t priority) {
  *
  * @return          - none
  *
- * @Note            - PendSV does not live in the NVIC IPR registers, so
- *                    NVIC_SetPriority() cannot reach it. Its priority byte is
- *                    bits 23:16 of SHPR3. Only the top NO_PR_BITS_IMPLEMENTED
- *                    bits of that byte exist on this part, hence the shift.
- *                    PendSV should be the lowest-priority exception so it can
- *                    never delay SysTick or a peripheral interrupt.
+ * @Note            - PendSV priority lives in SHPR3 bits 23:16, not in the
+ *                    NVIC IPR registers. Keep it lowest.
  */
 static inline void SCB_SetPendSVPriority(uint8_t priority) {
   uint32_t byte = ((uint32_t)priority << (8 - NO_PR_BITS_IMPLEMENTED)) & 0xFFU;
+
   SCB->SHPR3 = (SCB->SHPR3 & ~(0xFFU << 16)) | (byte << 16);
 }
 
@@ -730,6 +699,5 @@ static inline void SCB_SetSysTickPriority(uint8_t priority) {
 #define SPI_SR_OVR 6U
 #define SPI_SR_BSY 7U
 #define SPI_SR_FRE 8U
-#include "stm32f446xx_gpio_driver.h"
-#include "stm32f446xx_spi_driver.h"
+
 #endif /* IRC_STM32F446XX_H_ */

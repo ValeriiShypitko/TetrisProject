@@ -21,7 +21,7 @@
 #
 
 # Core project settings
-project("001test")
+project("stm32f446-tetris")
 enable_language(C CXX ASM)
 message("Build type: " ${CMAKE_BUILD_TYPE})
 
@@ -42,13 +42,14 @@ set(cpu_PARAMS
 
 # Sources
 set(sources_SRCS
-	${CMAKE_CURRENT_SOURCE_DIR}/Src/testing.c
+	${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/sysmem.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/syscalls.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/drivers/Src/MAX7219_driver.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/tetris.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/drivers/Src/max7219_driver.c
     ${CMAKE_CURRENT_SOURCE_DIR}/drivers/Src/stm32f446xx_gpio_driver.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/drivers/Src/stm32f446xx_rcc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/drivers/Src/stm32f446xx_spi_driver.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/drivers/Src/Tetris.c
 )
 
 # Include directories for all compilers

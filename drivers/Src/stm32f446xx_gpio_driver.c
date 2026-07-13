@@ -6,6 +6,7 @@
  */
 #include "stm32f446xx_gpio_driver.h"
 #include "stm32f446xx.h"
+#include <string.h>
 
 /*=======================
     GPIOx Init-DeInit
@@ -36,7 +37,7 @@ void GPIO_Init(GPIO_Handle_t *pGPIOHandle) {
   } else {
     // EXTI Interrupt Modes
 
-    // FIX 1: Ensure the GPIO pin is configured as an INPUT (MODER = 00)
+    // interrupt modes need the pin as input (MODER = 00)
     pGPIOHandle->GPIOx->MODER &= ~(0x3U << (2 * pinNumber));
 
     if (mode == GPIO_MODE_IT_FT) {
@@ -62,8 +63,7 @@ void GPIO_Init(GPIO_Handle_t *pGPIOHandle) {
     uint8_t extiBitPos = (pinNumber % 4) * 4;
     uint8_t portCode = GPIOx_BaseAddr_To_Code(pGPIOHandle->GPIOx);
 
-    // FIX 2: Clear the 4 bits for this EXTI line before setting the new port
-    // code
+    // clear, then set the port code
     SYSCFG->EXTICR[extiRegIndex] &= ~(0xFU << extiBitPos);
     SYSCFG->EXTICR[extiRegIndex] |= (portCode << extiBitPos);
 
@@ -145,8 +145,8 @@ void GPIO_OutputInit(GPIOx_RegDef_t *port, uint8_t pinNumber,
  * @Note            - none
  */
 void GPIO_DeInit(GPIO_Port_e GPIOPort) {
-  *rcc_reset_map[GPIOPort].reg |= (0x1U << rcc_en_map[GPIOPort].bit);
-  *rcc_reset_map[GPIOPort].reg &= (0x1U << rcc_en_map[GPIOPort].bit);
+  *rcc_reset_map[GPIOPort].reg |=  (0x1U << rcc_reset_map[GPIOPort].bit);
+  *rcc_reset_map[GPIOPort].reg &= ~(0x1U << rcc_reset_map[GPIOPort].bit);
 }
 
 /*=======================
@@ -279,14 +279,10 @@ void GPIO_ToggleOutputPin(GPIOx_RegDef_t *GPIOx, uint8_t pinNumber) {
  * @Note            - none
  */
 
-/**
- * @Note  EXTI->PR is write-1-to-clear. A read-modify-write would read a 1 back
- *        for every pending line and write them all back, clearing lines this
- *        call never handled. Store the single bit instead.
- */
 void GPIO_IRQHandling(uint8_t pinNumber) {
   if (pinNumber > 15)
     return;
+  // PR is write-1-to-clear, never read-modify-write it
   EXTI->PR = (0x1U << pinNumber);
 }
 
@@ -303,10 +299,10 @@ void GPIO_IRQHandling(uint8_t pinNumber) {
  */
 
 void GPIO_IRQPortForPinSelect(uint8_t pin, uint8_t port_opcode) {
-  if (pin > 15) /* pin is unsigned; a "< 0" test here is always false */
+  if (pin > 15)
     return;
   uint8_t tempBitPos = pin % 4;
   uint8_t tempRegPos = pin / 4;
-  SYSCFG->EXTICR[tempRegPos] &= ~(0xFU << (4 * tempBitPos)); /* clear, then set */
+  SYSCFG->EXTICR[tempRegPos] &= ~(0xFU << (4 * tempBitPos));
   SYSCFG->EXTICR[tempRegPos] |= (port_opcode << (4 * tempBitPos));
 }

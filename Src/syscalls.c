@@ -48,15 +48,15 @@ void USART2_TX_Init(void)
 	GPIO_Handle_t txPin;
 	memset(&txPin, 0, sizeof(txPin));
 	txPin.GPIOx = GPIOA;
-	txPin.PinConfig.GPIOx_PinNumber = GPIO_PIN_2;      /* PA2 = USART2_TX */
+	txPin.PinConfig.GPIOx_PinNumber = GPIO_PIN_2;
 	txPin.PinConfig.GPIOx_PinMode = GPIO_MODE_ALTFN;
-	txPin.PinConfig.GPIOx_PinAltFuncMode = 7U;         /* AF7 = USART2 */
+	txPin.PinConfig.GPIOx_PinAltFuncMode = 7U;
 	txPin.PinConfig.GPIOx_PinOutputType = GPIO_OT_PP;
 	txPin.PinConfig.GPIOx_PinPuPdControl = GPIO_NOPUD;
 	txPin.PinConfig.GPIOx_PinSpeed = GPIO_OS_HS;
 	GPIO_Init(&txPin);
 
-	/* 115200 baud @ 16 MHz PCLK1 (HSI, no PLL configured), OVER8 = 0 */
+	/* 115200 baud @ 16 MHz OVER8 = 0 */
 	USART2->BRR = 0x8BU;
 	USART2->CR1 = (1U << 3) | (1U << 13); /* TE, UE */
 }
