@@ -12,11 +12,6 @@
 #include "stm32f446xx_gpio_driver.h"
 
 
-typedef struct {
-  int8_t x;
-  int8_t y;
-  uint8_t value;
-} Point_Value_t;
 
 typedef struct {
   int8_t x;
@@ -25,15 +20,12 @@ typedef struct {
 
 typedef struct {
   Point_t pivot;
-  uint8_t len;
   uint8_t rotateNum;
-  const Point_Value_t (*shape)[4][4];
+  const uint16_t *shape;
 } Shape_t;
 
-#define SHAPE_LEN_2 0x2
-#define SHAPE_LEN_3 0x3
-#define SHAPE_LEN_4 0x4
-#define SHAPESCOUNT 0x7
+#define SHAPE_LEN  0x4U
+#define SHAPESCOUNT 0x7U
 #define GAMESPEED 270U
 #define MAP_HEIGHT 32U
 #define MAP_WIDTH 8U

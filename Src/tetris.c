@@ -18,161 +18,54 @@ static inline int8_t takeIntent(volatile int8_t *intent); // Returns the intent 
 const Point_t DEFAULTSPAWNPOINT = {3, 30};
 const Point_t CUBESPAWNPOINT = {4, 30};
 
-// Consts of every tetromino state in the game
-const Point_Value_t ISHAPE_RTS[4][4][4] = {
-    {{{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {2, 1, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {2, 0, 1}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 0}, {2, -1, 0}},
-     {{-1, -2, 0}, {0, -2, 0}, {1, -2, 0}, {2, -2, 0}}},
-    {{{-1, 1, 0}, {0, 1, 0}, {1, 1, 1}, {2, 1, 0}},
-     {{-1, 0, 0}, {0, 0, 0}, {1, 0, 1}, {2, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 1}, {2, -1, 0}},
-     {{-1, -2, 0}, {0, -2, 0}, {1, -2, 1}, {2, -2, 0}}},
-    {{{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {2, 1, 0}},
-     {{-1, 0, 0}, {0, 0, 0}, {1, 0, 0}, {2, 0, 0}},
-     {{-1, -1, 1}, {0, -1, 1}, {1, -1, 1}, {2, -1, 1}},
-     {{-1, -2, 0}, {0, -2, 0}, {1, -2, 0}, {2, -2, 0}}},
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {2, 1, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 0}, {2, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {2, -1, 0}},
-     {{-1, -2, 0}, {0, -2, 1}, {1, -2, 0}, {2, -2, 0}}}
+// Consts of every tetromino state in the game.
+// Each state is a 4x4 bitmask, bit (i*4 + j) = cell at x = j-1, y = 1-i
+// from the pivot. States advance clockwise.
 
-};
-const Point_Value_t JSHAPE_RTS[4][4][4] = {
-    {{{-1, 1, 1}, {0, 1, 0}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 1}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {
+// ....  ..X.  ....  .X..
+// XXXX  ..X.  ....  .X..
+// ....  ..X.  XXXX  .X..
+// ....  ..X.  ....  .X..
+const uint16_t ISHAPE_STATE[4] = {0x00F0, 0x4444, 0x0F00, 0x2222};
 
-        {{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 0}},
-        {{-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-        {{-1, -1, 0}, {0, -1, 0}, {1, -1, 1}, {0, 0, 0}},
-        {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 1}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}}
+// X..  .XX  ...  .X.
+// XXX  .X.  XXX  .X.
+// ...  .X.  ..X  XX.
+const uint16_t JSHAPE_STATE[4] = {0x0071, 0x0226, 0x0470, 0x0322};
 
-};
+// .X.  .X.  ...  .X.
+// XXX  .XX  XXX  XX.
+// ...  .X.  .X.  .X.
+const uint16_t TSHAPE_STATE[4] = {0x0072, 0x0262, 0x0270, 0x0232};
 
-const Point_Value_t TSHAPE_RTS[4][4][4] = {
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {
+// ..X  .X.  ...  XX.
+// XXX  .X.  XXX  .X.
+// ...  .XX  X..  .X.
+const uint16_t LSHAPE_STATE[4] = {0x0074, 0x0622, 0x0170, 0x0223};
 
-        {{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 0}},
-        {{-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-        {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-        {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}}
-};
+// .XX  .X.  ...  X..
+// XX.  .XX  .XX  XX.
+// ...  ..X  XX.  .X.
+const uint16_t SSHAPE_STATE[4] = {0x0036, 0x0462, 0x0360, 0x0231};
 
-const Point_Value_t LSHAPE_RTS[4][4][4] = {
-    {{{-1, 1, 0}, {0, 1, 0}, {1, 1, 1}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
+// XX.  ..X  ...  .X.
+// .XX  .XX  XX.  XX.
+// ...  .X.  .XX  X..
+const uint16_t ZSHAPE_STATE[4] = {0x0063, 0x0264, 0x0630, 0x0132};
 
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 1}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {
-
-        {{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 0}},
-        {{-1, 0, 1}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-        {{-1, -1, 1}, {0, -1, 0}, {1, -1, 0}, {0, 0, 0}},
-        {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 1}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}}
-};
-
-const Point_Value_t SSHAPE_RTS[4][4][4] = {
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 1}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 1}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
+// XX
+// XX
+const uint16_t OSHAPE_STATE[4] = {0x0033, 0x0033, 0x0033, 0x0033};
 
 
-    {{{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 1}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-
-    {{{-1, 1, 1}, {0, 1, 0}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}}
-};
-
-const Point_Value_t ZSHAPE_RTS[4][4][4] = {
-    {{{-1, 1, 1}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 0}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 0}, {0, 1, 0}, {1, 1, 1}, {0, 0, 0}},
-     {{-1, 0, 0}, {0, 0, 1}, {1, 0, 1}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {
-     {{-1, 1, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 0}, {0, -1, 1}, {1, -1, 1}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 0}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{-1, -1, 1}, {0, -1, 0}, {1, -1, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}}};
-
-const Point_Value_t OSHAPE_RTS[4][4][4] = {
-    {{{-1, 1, 1}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 1}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {
-
-        {{-1, 1, 1}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-        {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-        {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
-        {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}},
-    {{{-1, 1, 1}, {0, 1, 1}, {1, 1, 0}, {0, 0, 0}},
-     {{-1, 0, 1}, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
-     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}}};
-
-// Consts of every tetromino containing pivot point (x,y), length of grid, default rotation number, and pointer to the rotation states
-const Shape_t ISHAPE = {DEFAULTSPAWNPOINT, SHAPE_LEN_4, 0, ISHAPE_RTS};
-const Shape_t JSHAPE = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, JSHAPE_RTS};
-const Shape_t LSHAPE = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, LSHAPE_RTS};
-const Shape_t TSHAPE = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, TSHAPE_RTS};
-const Shape_t SSHAPE = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, SSHAPE_RTS};
-const Shape_t ZSHAPE = {DEFAULTSPAWNPOINT, SHAPE_LEN_3, 0, ZSHAPE_RTS};
-const Shape_t OSHAPE = {CUBESPAWNPOINT, SHAPE_LEN_2, 0, OSHAPE_RTS};
+// Consts of every tetromino containing pivot point (x,y),default rotation number, and pointer to the rotation states
+const Shape_t ISHAPE = {DEFAULTSPAWNPOINT,0, ISHAPE_STATE};
+const Shape_t JSHAPE = {DEFAULTSPAWNPOINT, 0, JSHAPE_STATE};
+const Shape_t LSHAPE = {DEFAULTSPAWNPOINT, 0, LSHAPE_STATE};
+const Shape_t TSHAPE = {DEFAULTSPAWNPOINT, 0, TSHAPE_STATE};
+const Shape_t SSHAPE = {DEFAULTSPAWNPOINT, 0, SSHAPE_STATE};
+const Shape_t ZSHAPE = {DEFAULTSPAWNPOINT, 0, ZSHAPE_STATE};
+const Shape_t OSHAPE = {CUBESPAWNPOINT, 0, OSHAPE_STATE};
 
 const Shape_t shapesArr[SHAPESCOUNT] = {TSHAPE, LSHAPE, JSHAPE, OSHAPE,ISHAPE, SSHAPE, ZSHAPE};
 
@@ -219,11 +112,10 @@ uint8_t getRandShape(uint32_t seed) {
  * @brief  adds current piece to the tetrisMap and refreshes the display 
  */
 void addPiece(Shape_t *shape) {
-  for (uint8_t i = 0; i < shape->len; i++) {
-    for (uint8_t j = 0; j < shape->len; j++) {
-      if (shape->shape[shape->rotateNum][i][j].value == 1) {
-        tetrisMap[shape->pivot.x + shape->shape[shape->rotateNum][i][j].x]
-                 [shape->pivot.y + shape->shape[shape->rotateNum][i][j].y] = 1;
+  for (uint8_t i = 0; i < SHAPE_LEN; i++) {
+    for (uint8_t j = 0; j < SHAPE_LEN; j++) {
+      if (shape->shape[shape->rotateNum]  & (1U << (j + i * SHAPE_LEN))) {
+        tetrisMap[shape->pivot.x  + j - 1][shape->pivot.y - i + 1] = 1;
       }
     }
   }
@@ -236,15 +128,16 @@ void addPiece(Shape_t *shape) {
  * @note   tetrisMap never contains the falling piece itself (addPiece() is
  *         always paired with clearPiece()), so no self-collision is possible.
  */
+
 static bool canPlace(const Shape_t *shape, uint8_t rot, int8_t px, int8_t py) {
-  for (uint8_t i = 0; i < shape->len; i++) {
-    for (uint8_t j = 0; j < shape->len; j++) {
-      const Point_Value_t *p = &shape->shape[rot][i][j];
-      if (p->value != 1)
+  for (uint8_t i = 0; i < SHAPE_LEN; i++) {
+    for (uint8_t j = 0; j < SHAPE_LEN; j++) {
+      
+      if ((shape->shape[rot] & (1U << (j + i * SHAPE_LEN)))== 0)
         continue;
 
-      int8_t x = p->x + px;
-      int8_t y = p->y + py;
+      int8_t x = px + j - 1;
+      int8_t y = py - i + 1;
 
       if (x < 0 || x > 7 || y < 0 || y > 31)
         return false;
@@ -321,11 +214,10 @@ void removeFullRows(void) {
  *        
  */
 void clearPiece(Shape_t *shape) {
-  for (uint8_t i = 0; i < shape->len; i++) {
-    for (uint8_t j = 0; j < shape->len; j++) {
-      if (shape->shape[shape->rotateNum][i][j].value == 1)
-        tetrisMap[shape->pivot.x + shape->shape[shape->rotateNum][i][j].x]
-                 [shape->pivot.y + shape->shape[shape->rotateNum][i][j].y] = 0;
+  for (uint8_t i = 0; i < SHAPE_LEN; i++) {
+    for (uint8_t j = 0; j < SHAPE_LEN; j++) {
+      if (shape->shape[shape->rotateNum] & (1U << (j + i * SHAPE_LEN)))
+        tetrisMap[shape->pivot.x + j - 1][shape->pivot.y - i + 1] = 0;
     }
   }
 }
