@@ -57,7 +57,7 @@ static void SPI2_Pins_Init(void) {
   GPIO_Init(&spiPins);
 }
 
-static void Buttons_Init(void) {
+static void buttons_Init(void) {
   GPIO_Handle_t buttonInitStruct;
   memset(&buttonInitStruct, 0, sizeof(buttonInitStruct));
   buttonInitStruct.GPIOx = GPIOB;
@@ -87,7 +87,7 @@ int main(void) {
   /* PB8 = CS pin for the MAX7219 chain */
   GPIO_OutputInit(MAX7219_CS_PORT, MAX7219_CS_PIN, GPIO_OS_FS);
 
-  Buttons_Init();
+  buttons_Init();
   SPI2_Pins_Init();
 
   /* SPI2 as master, mode 0, 8-bit, fPCLK/2, software slave management */

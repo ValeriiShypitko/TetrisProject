@@ -26,7 +26,7 @@ typedef struct {
 
 #define SHAPE_LEN  0x4U
 #define SHAPESCOUNT 0x7U
-#define GAMESPEED 270U
+#define GAMESPEED  300U 
 #define MAP_HEIGHT 32U
 #define MAP_WIDTH 8U
 
@@ -41,7 +41,7 @@ typedef struct {
 #define BUTTON_LINES_MASK                                                      \
   ((1U << LEFTARROW) | (1U << RIGHTARROW) | (1U << LEFTSPIN) |                 \
    (1U << RIGHTSPIN))
-#define DEBOUNCE_MS 120U
+#define DEBOUNCE_MS 140U 
 
 #define SCORE_PER_ROW 1100U
 #define SCORE_PER_TICK 75U
