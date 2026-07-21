@@ -96,7 +96,7 @@ STM32_Programmer_CLI -c port=SWD -w build/Debug/stm32f446-tetris.hex -v -rst
 
 - The game waits for any button press to start (the press also seeds the
   randomizer).
-- Pieces fall every 270 ms (`GAMESPEED` in `Inc/tetris.h`).
+- Pieces fall every 300 ms (`GAMESPEED` in `Inc/tetris.h`).
 - +75 points per tick survived, +1100 per cleared row.
 - Score streams over USART2; game over clears the display and prints the
   final score.
