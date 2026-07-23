@@ -1,9 +1,7 @@
 # Tetris on STM32F446, design v1
 
-A write-up of the code as it stands, before any restructuring: what states the
-game goes through, which interrupts it runs in, what happens in one frame, and
-how it drives the hardware. Nothing here is a proposal, it's what's on the board
-right now.
+What the firmware does right now: the states it moves through, the interrupts it
+runs in, one game frame, and how it drives the hardware.
 
 Board is a NUCLEO-F446RE on the 16 MHz HSI, no PLL configured. Display is 4x
 MAX7219 8x8 matrices daisy-chained on SPI2, playfield 8 wide and 32 tall. Four
