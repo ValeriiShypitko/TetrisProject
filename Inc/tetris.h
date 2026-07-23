@@ -30,18 +30,15 @@ typedef struct {
 #define MAP_HEIGHT 32U
 #define MAP_WIDTH 8U
 
-#define BUTTONCOUNT 4U
 #define LEFTARROW GPIO_PIN_9
 #define RIGHTARROW GPIO_PIN_5
 #define LEFTSPIN GPIO_PIN_7
 #define RIGHTSPIN GPIO_PIN_6
-#define NO_BUTTON 0xFFU
 
 #define EXTI9_5_LINES 0x03E0U
-#define BUTTON_LINES_MASK                                                      \
-  ((1U << LEFTARROW) | (1U << RIGHTARROW) | (1U << LEFTSPIN) |                 \
-   (1U << RIGHTSPIN))
-#define DEBOUNCE_MS 140U 
+#define BUTTON_LINES_MASK ((1U << LEFTARROW) | (1U << RIGHTARROW) | (1U << LEFTSPIN) | (1U << RIGHTSPIN))
+
+#define DEBOUNCE_MS 140U
 
 #define SCORE_PER_ROW 1100U
 #define SCORE_PER_TICK 75U

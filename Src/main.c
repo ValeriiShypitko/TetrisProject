@@ -27,7 +27,7 @@ extern volatile uint32_t userScore;
 extern Shape_t currentShape;
 extern volatile uint32_t globalTime;
 
-extern volatile bool startRequested;
+extern volatile uint32_t buttonEvents;
 extern volatile bool gameStarted;
 extern volatile bool gameOver;
 
@@ -122,9 +122,10 @@ int main(void) {
   uint32_t shownScore = 0;
   bool reportedGameOver = false;
 
-  while (!startRequested)
+  while (!buttonEvents)
     ; // wait for the first button press, it also seeds the randomizer
   currentShape = shapesArr[getRandShape(globalTime)];
+  buttonEvents = 0;   // the starting press shouldn't also move the first piece
   gameStarted = true; // PendSV may touch currentShape from here on
 
   for (;;){

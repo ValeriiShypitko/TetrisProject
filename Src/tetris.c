@@ -12,8 +12,7 @@
 #include "string.h"
 
 
-static uint8_t tetrisSearchButton(void); // Returns the pending button pin, or NO_BUTTON if no known line is pending                          
-static inline int8_t takeIntent(volatile int8_t *intent); // Returns the intent and clears it                      
+static inline uint32_t takeButtonEvents(void); // Returns the pending button lines and clears them
 
 const Point_t DEFAULTSPAWNPOINT = {3, 30};
 const Point_t CUBESPAWNPOINT = {4, 30};
@@ -72,19 +71,21 @@ const Shape_t shapesArr[SHAPESCOUNT] = {TSHAPE, LSHAPE, JSHAPE, OSHAPE,ISHAPE, S
 bool tetrisMap[MAP_WIDTH][MAP_HEIGHT];
 
 volatile uint32_t globalTime = 0;
-static   uint32_t lastTimePressed = 0;
 
 volatile uint32_t userScore = 0;
 
+// EXTI lines that fired since the last frame took them
+volatile uint32_t buttonEvents = 0;
 
-volatile int8_t queuedMove = 0;
-volatile int8_t queuedSpin = 0;
+// Lines currently masked in EXTI->IMR while their contact settles, and when
+// they were masked. Written by EXTI9_5, re-armed by SysTick.
+static volatile uint32_t maskedLines = 0;
+static volatile uint32_t maskedAt = 0;
 
 Shape_t currentShape;
 
 
-volatile bool startRequested = false; // set by the first button press
-volatile bool gameStarted = false;    // set by main, gates the game tick
+volatile bool gameStarted = false; // set by main, gates the game tick
 volatile bool gameOver = false;
 
 /**
@@ -251,26 +252,13 @@ void convertTetrisMapToDisplayMap(void) {
 }
 
 
-/**
- * @brief searches for the pending button pin in EXTI->PR and returns it, or NO_BUTTON if no known line is pending
- */
-static uint8_t tetrisSearchButton(void){
-  static const uint8_t buttonPins[BUTTONCOUNT] = {LEFTARROW, RIGHTARROW,
-                                                  LEFTSPIN, RIGHTSPIN};
-  for (uint8_t i = 0; i < BUTTONCOUNT; i++){
-    if(EXTI->PR & (1U << buttonPins[i]))
-      return buttonPins[i];
-  }
-  return NO_BUTTON;
-}
-
-// Atomic read-and-clear of a queued intent
-static inline int8_t takeIntent(volatile int8_t *slot) {
+// Atomic read-and-clear of the pending button lines
+static inline uint32_t takeButtonEvents(void) {
   __asm volatile("CPSID i" ::: "memory");
-  int8_t v = *slot;
-  *slot = 0;
+  uint32_t events = buttonEvents;
+  buttonEvents = 0;
   __asm volatile("CPSIE i" ::: "memory");
-  return v;
+  return events;
 }
 
 
@@ -281,41 +269,21 @@ void pendPendSV(void){ SCB->ICSR = SCB_ICSR_PENDSVSET; }
 
 
 /**
- * @brief queues a move or spin intent based on the button pressed, with debouncing
+ * @brief records which button lines fired, then masks them so they stop
+ *        chattering. SysTick re-arms them.
+ *
+ * @note all pending lines are taken in one entry, so buttons pressed together
+ *       reach the same frame. Decoding and collision checks happen in PendSV.
  */
 void EXTI9_5_IRQHandler(void){
-  uint8_t pin = tetrisSearchButton();
-  if(pin == NO_BUTTON){
-    // not our line; leave the button lines alone, a press could be pending
-    EXTI->PR = EXTI9_5_LINES & ~BUTTON_LINES_MASK;
-    return;
-  }
-  GPIO_IRQHandling(pin); 
+  uint32_t fired = EXTI->PR & EXTI9_5_LINES;
 
-  if(globalTime - lastTimePressed < DEBOUNCE_MS)
-    return;
-  lastTimePressed = globalTime;
+  EXTI->PR = fired;      // clear exti->pr
+  EXTI->IMR &= ~fired;   // stop listening until the contact settles
+  maskedLines |= fired;
+  maskedAt = globalTime;
 
-  if(gameStarted){
-    switch (pin) { 
-    case LEFTARROW:
-      queuedMove = -1;
-      break;
-    case RIGHTARROW:
-      queuedMove = +1;
-      break;
-    case LEFTSPIN:
-      queuedSpin = -1;
-      break;
-    case RIGHTSPIN:
-      queuedSpin = +1;
-      break;
-    default:
-      break;
-    }
-  }
-  // main picks the first shape, then sets gameStarted itself
-  startRequested = true;
+  buttonEvents |= fired & BUTTON_LINES_MASK;
 }
 
 /**
@@ -325,8 +293,14 @@ void SysTick_Handler(void){
   static uint32_t updateScreenTime = 0;
 
   globalTime++;
+  if(maskedLines && (globalTime - maskedAt) >= DEBOUNCE_MS){
+    EXTI->PR = maskedLines;
+    EXTI->IMR |= maskedLines;
+    maskedLines = 0;
+  }
+
   if(gameStarted){
-    updateScreenTime++;
+    updateScreenTime++; 
     if(updateScreenTime >= GAMESPEED) {
       updateScreenTime = 0;
       pendPendSV();
@@ -341,18 +315,18 @@ void SysTick_Handler(void){
 *  @note this is where the game logic is executed, including moving and spinning the current shape, checking for collisions, and updating the score
 */
 void PendSV_Handler(void){
-  int8_t mv = takeIntent(&queuedMove);
-  int8_t sp = takeIntent(&queuedSpin);
+  uint32_t events = takeButtonEvents();
 
-  // a move and a spin queued in the same tick both apply
-  if(mv < 0 && canGoLeft(&currentShape))
+  // every button pressed since the last frame is applied, so a move and a spin
+  // together both go through
+  if((events & (1U << LEFTARROW)) && canGoLeft(&currentShape))
     currentShape.pivot.x--;
-  else if(mv > 0 && canGoRight(&currentShape))
+  if((events & (1U << RIGHTARROW)) && canGoRight(&currentShape))
     currentShape.pivot.x++;
 
-  if(sp < 0 && canSpin_Left(&currentShape))
+  if((events & (1U << LEFTSPIN)) && canSpin_Left(&currentShape))
     currentShape.rotateNum = (currentShape.rotateNum + 3) % 4;
-  else if(sp > 0 && canSpin_Right(&currentShape))
+  if((events & (1U << RIGHTSPIN)) && canSpin_Right(&currentShape))
     currentShape.rotateNum = (currentShape.rotateNum + 1) % 4;
 
   if(canGoDown(&currentShape)){
